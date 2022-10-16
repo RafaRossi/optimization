@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Dark City/Demo/Dark City.unity
+    guid: a0eee498355087345acef06e271a8f6b
   m_configObjects: {}
