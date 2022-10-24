@@ -1,87 +1,60 @@
-Shader "Custom/s_RenderShader"
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-     Properties
-     {
-        [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
-        _Color ("Tint", Color) = (1,1,1,1)
-        _Scale ("Scale", Float) = 1
-         
-        _Width ("Width", Range(.75, 1)) = 1
-
-        _Height ("Height", Range(.75, 1)) = 1
-
+    // Normalized pixel coordinates (from 0 to 1)
+    vec2 uv = fragCoord/iResolution.xy;
+    vec2 muv;
+    if (iMouse.z > 0.) {
+        muv = iMouse.xy/iResolution.xy;
+    } else {
+        muv = vec2(.5+.3*sin(iTime*.3),.5);
     }
-    SubShader
-    {
-        Tags
-        { 
-            "Queue"="Transparent" 
-            "IgnoreProjector"="True" 
-            "RenderType"="Transparent" 
-            "PreviewType"="Plane"
-            "CanUseSpriteAtlas"="True"
+  
+    vec3 col = texture(iChannel0, uv).xyz;
 
-            "DisableBatching"="True" // NOT SURE IF THIS IS NEEDED
-        }
-
-        Cull Off
-        Lighting Off
-        ZWrite Off
-        ZTest [unity_GUIZTestMode]
-        Blend SrcAlpha OneMinusSrcAlpha
-
-        Pass
-        {
-        CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-
-            #include "UnityCG.cginc"
-            #include "UnityUI.cginc"
-            
-            struct appdata_t
-            {
-                float4 vertex   : POSITION;
-                float4 color    : COLOR;
-                float2 texcoord : TEXCOORD0;
-            };
-
-            struct v2f
-            {
-                float4 vertex   : SV_POSITION;
-                fixed4 color    : COLOR;
-                half2 texcoord  : TEXCOORD0;
-                float4 worldPosition : TEXCOORD1;
-            };
-            
-            fixed4 _Color;
-            fixed4 _TextureSampleAdd;
-            float _Scale;
-            v2f vert(appdata_t v)
-            {
-                v2f o;
-
-                o.vertex = UnityObjectToClipPos(v.vertex);
-
-                o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-
-                o.uv -= float2(.5, .5);
-
-                o.uv.x *= _Height;
-
-                o.uv.y *= _Width;
-
-                o.uv += float2(.5, .5);
-
-                return o;
-            }
-
-            sampler2D _MainTex;
-            fixed4 frag(v2f IN) : SV_Target
-            {
-                return (tex2D(_MainTex, IN.texcoord) + _TextureSampleAdd) * IN.color;
-            }
-        ENDCG
+    // CAS algorithm
+    float max_g = col.y;
+    float min_g = col.y;
+    vec4 uvoff = vec4(1,0,1,-1)/iChannelResolution[0].xxyy;
+    vec3 colw;
+    vec3 col1 = texture(iChannel0, uv+uvoff.yw).xyz;
+    max_g = max(max_g, col1.y);
+    min_g = min(min_g, col1.y);
+    colw = col1;
+    col1 = texture(iChannel0, uv+uvoff.xy).xyz;
+    max_g = max(max_g, col1.y);
+    min_g = min(min_g, col1.y);
+    colw += col1;
+    col1 = texture(iChannel0, uv+uvoff.yz).xyz;
+    max_g = max(max_g, col1.y);
+    min_g = min(min_g, col1.y);
+    colw += col1;
+    col1 = texture(iChannel0, uv-uvoff.xy).xyz;
+    max_g = max(max_g, col1.y);
+    min_g = min(min_g, col1.y);
+    colw += col1;
+    float d_min_g = min_g;
+    float d_max_g = 1.-max_g;
+    float A;
+    max_g = max(0., max_g);
+    if (d_max_g < d_min_g) {
+        A = d_max_g / max_g;
+    } else {
+        A = d_min_g / max_g;
+    }
+    A = sqrt(max(0., A));
+    A *= mix(-.125, -.2, muv.y);
+    vec3 col_out = (col + colw * A) / (1.+4.*A);
+    if (uv.x > (muv.x-1./iResolution.x)) {
+        if (uv.x > (muv.x+1./iResolution.x)) {
+            // 'Control' texture
+            col_out = texture(iChannel1, uv).xyz;
+        } else {
+            // Black line
+            col_out = vec3(0);
         }
     }
+    
+    
+    // Output to screen
+    fragColor = vec4(col_out,1);
 }

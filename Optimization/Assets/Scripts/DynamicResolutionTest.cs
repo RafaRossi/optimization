@@ -29,6 +29,12 @@ public class DynamicResolutionTest : MonoBehaviour
     double m_gpuFrameTime;
     double m_cpuFrameTime;
 
+
+    private void Awake()
+    {
+        Application.targetFrameRate = 1200;
+    }
+
     // Use this for initialization
     void Start()
     {
